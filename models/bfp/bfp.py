@@ -139,7 +139,10 @@ class Bfp(ContinualModel):
             lambda_1, lambda_2, lambda_3 = 0.1, 0.1, 0.1  
             x1, x2 = inputs[:len(inputs)//2], inputs[len(inputs)//2:]
             z, z_prime = self.net(x1), self.net(x2)
-            D_x1 = self.projector_manager.projectors[-1](x1.view(x1.size(0), -1))
+            D_x1 = self.projector_manager.projectors[-1](x1.view(x1.size(0), 512))  # Adjust size if needed
+            print("x1 shape:", x1.shape)  # Ensure it matches the expected input of the projector
+            print("Expected projector input shape:", self.projector_manager.projectors[-1].in_features)
+
             D_x2 = self.projector_manager.projectors[-1](x2.view(x2.size(0), -1))
 
             D_x1, D_x2 = self.projector_manager.projectors[-1](x1), self.projector_manager.projectors[-1](x2)
