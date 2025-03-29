@@ -136,7 +136,7 @@ class Bfp(ContinualModel):
                 bfp_loss_all, bfp_loss_dict = self.projector_manager.compute_loss(
                     feats_comb, feats_old, mask_new, mask_old)
                 
-            lambda_1, lambda_2, lambda_3 = 0.1, 0.1, 0.1  
+            '''lambda_1, lambda_2, lambda_3 = 0.1, 0.1, 0.1  
             x1, x2 = inputs[:len(inputs)//2], inputs[len(inputs)//2:]
             z, z_prime = self.net(x1), self.net(x2)
             self.feature_reducer = nn.Linear(3072, 512).to(self.device)  # Move to correct device
@@ -160,10 +160,10 @@ class Bfp(ContinualModel):
             new_loss += lambda_2 * self.loss(x2, labels[len(labels)//2:])
             new_loss += lambda_3 * torch.norm(x1 - x2, p=self.args.p_norm)
 
-        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all + new_loss
+        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all + new_loss'''
 
                 
-        #loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all
+        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all
 
         self.opt.zero_grad()
         self.projector_manager.before_backward()
