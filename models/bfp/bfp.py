@@ -76,6 +76,7 @@ class Bfp(ContinualModel):
         replay_ce_loss = 0.0
         bfp_loss_all = 0.0
         bfp_loss_dict = None
+        new_loss = 0.0
 
         if not self.buffer.is_empty():
             '''Distill loss on the replayed images'''
