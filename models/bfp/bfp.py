@@ -51,8 +51,6 @@ class CustomLoss(nn.Module):
             self.lambda3 * variance_loss
         )
         return total_loss
-
-
 class Bfp(ContinualModel):
     NAME = 'bfp'
     COMPATIBILITY = ['class-il', 'domain-il', 'task-il', 'general-continual']
