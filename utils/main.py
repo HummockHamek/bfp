@@ -57,7 +57,7 @@ def parse_args(to_parse=None):
     parser.add_argument('--load_best_args', action='store_true',
                         help='Loads the best arguments for each method, '
                              'dataset and memory buffer.')
-    torch.set_num_threads(2)
+    torch.set_num_threads(4)
     add_management_args(parser)
     args = parser.parse_known_args(to_parse)[0]
     mod = importlib.import_module('models.' + args.model)
