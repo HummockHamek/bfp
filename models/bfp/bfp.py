@@ -218,7 +218,7 @@ class Bfp(ContinualModel):
         # Then call the super constructor
         super(Bfp, self).__init__(backbone, loss, args, transform)
         self.old_net = None
-        self.buffer = Buffer(self.args.buffer_size, self.device, class_balance = self.args.class_balance)
+        self.buffer = Buffer(self.args.buffer_size, self.device, class_balance=self.args.class_balance)
 
         # if resnet_skip_relu, modify the backbone to skip relu at the end of each major block
         if self.args.resnet_skip_relu:
@@ -247,7 +247,7 @@ class Bfp(ContinualModel):
         outputs, feats = self.net.forward_all_layers(inputs)
         ce_loss = self.loss(outputs, labels)
     
-        def sample_buffer_and_forward(transform = self.transform):
+        def sample_buffer_and_forward(transform=self.transform):
             buf_data = self.buffer.get_data(self.args.minibatch_size, transform=transform)
             buf_inputs, buf_labels, buf_logits, buf_task_labels = buf_data[0], buf_data[1], buf_data[2], buf_data[3]
             buf_feats = [buf_data[4]] if self.args.use_buf_feats else None
@@ -262,25 +262,29 @@ class Bfp(ContinualModel):
         new_loss = 0.0
 
         if not self.buffer.is_empty():
-            '''Distill loss on the replayed images'''
+            # Distill loss on the replayed images
             if self.args.alpha_distill > 0:
-                if self.args.no_resample and "buf_inputs" in locals(): pass # No need to resample
-                else: buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
+                if self.args.no_resample and "buf_inputs" in locals():
+                    pass  # No need to resample
+                else:
+                    buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
 
                 if (not self.args.use_buf_logits) and (self.old_net is not None):
                     with torch.no_grad():
                         buf_logits = self.old_net(buf_inputs)
-                        
+                
                 logits_distill_loss = self.args.alpha_distill * F.mse_loss(buf_logits_new_net, buf_logits)
 
-            '''CE loss on the replayed images'''
+            # CE loss on the replayed images
             if self.args.alpha_ce > 0:
-                if self.args.no_resample and "buf_inputs" in locals(): pass # No need to resample
-                else: buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
+                if self.args.no_resample and "buf_inputs" in locals():
+                    pass  # No need to resample
+                else:
+                    buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
                 
                 replay_ce_loss = self.args.alpha_ce * self.loss(buf_logits_new_net, buf_labels)
 
-            '''Backward feature projection loss'''
+            # Backward feature projection loss
             if self.old_net is not None and self.projector_manager.bfp_flag:
                 if not self.args.new_only:
                     buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
