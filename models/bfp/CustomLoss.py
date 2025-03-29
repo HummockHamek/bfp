@@ -1,10 +1,9 @@
 class CustomLoss(nn.Module):
-    def __init__(self, lambda1=0.1, lambda2=0.1, lambda3=0.05, feature_dim=512):
+    def __init__(self, lambda1=0.1, lambda2=0.1, lambda3=0.05):
         super(CustomLoss, self).__init__()
         self.lambda1 = lambda1
         self.lambda2 = lambda2
         self.lambda3 = lambda3
-        self.feature_dim = feature_dim
         self.similarity_metric = nn.CosineSimilarity(dim=1)
 
     def forward(self, inputs, buf_inputs, feats, buf_feats, norm_inputs, norm_buf_inputs):
@@ -12,7 +11,7 @@ class CustomLoss(nn.Module):
         similarity_loss = torch.mean(1 - self.similarity_metric(feats, buf_feats))
 
         # Compute norm difference loss
-        norm_loss = torch.abs(norm_inputs - norm_buf_inputs)
+        norm_loss = torch.abs(norm_inputs - norm_buf_inputs).mean()
 
         # Compute variance regularization loss
         variance_loss = torch.var(feats) + torch.var(buf_feats)
