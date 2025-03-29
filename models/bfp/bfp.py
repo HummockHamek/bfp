@@ -135,7 +135,23 @@ class Bfp(ContinualModel):
                 bfp_loss_all, bfp_loss_dict = self.projector_manager.compute_loss(
                     feats_comb, feats_old, mask_new, mask_old)
                 
-        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all
+            lambda_1, lambda_2, lambda_3 = 0.1, 0.1, 0.1  
+            x1, x2 = inputs[:len(inputs)//2], inputs[len(inputs)//2:]
+            z, z_prime = self.net(x1), self.net(x2)
+            D_x1, D_x2 = self.projector_manager.projectors[-1](x1), self.projector_manager.projectors[-1](x2)
+
+            D_x1 = torch.flatten(D_x1, start_dim=1) if D_x1.dim() > 2 else D_x1
+            D_x2 = torch.flatten(D_x2, start_dim=1) if D_x2.dim() > 2 else D_x2
+
+            new_loss = torch.norm(z - D_x1, p=2) ** 2 + torch.norm(z_prime - D_x2, p=2) ** 2
+            new_loss += lambda_1 * self.loss(x1, labels[:len(labels)//2])
+            new_loss += lambda_2 * self.loss(x2, labels[len(labels)//2:])
+            new_loss += lambda_3 * torch.norm(x1 - x2, p=self.args.p_norm)
+
+        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all + new_loss
+
+                
+        #loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all
 
         self.opt.zero_grad()
         self.projector_manager.before_backward()
