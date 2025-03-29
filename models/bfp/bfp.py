@@ -7,11 +7,10 @@ import copy
 import math
 import torch
 import wandb
-
+import CustomLoss
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn as nn
-import CustomLoss
 from torch.optim import SGD, Adam
 from torch.nn import functional as F
 
@@ -60,17 +59,6 @@ class Bfp(ContinualModel):
         super().begin_task(dataset, t, start_epoch)
         self.projector_manager.begin_task(dataset, t, start_epoch)
 
-'''utkarsh'''
-
-        
-
-
-
-
-
-
-
-
     def observe(self, inputs, labels, not_aug_inputs):
         # Regular CE loss on the online data
         outputs, feats = self.net.forward_all_layers(inputs)
@@ -90,7 +78,7 @@ class Bfp(ContinualModel):
         bfp_loss_all = 0.0
         bfp_loss_dict = None
         new_loss = 0.0
-
+        
         if not self.buffer.is_empty():
             '''Distill loss on the replayed images'''
             if self.args.alpha_distill > 0:
@@ -151,7 +139,8 @@ class Bfp(ContinualModel):
         custom_loss_fn = CustomLoss(lambda1=0.1, lambda2=0.1, lambda3=0.05, feature_dim=feats[-1].shape[1])
         custom_loss = custom_loss_fn(inputs, buf_inputs, feats[-1], buf_feats_new_net[-1], torch.norm(inputs), torch.norm(buf_inputs))
         
-        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all + custom_loss      
+        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all + custom_loss
+                
         #loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all
 
         self.opt.zero_grad()
