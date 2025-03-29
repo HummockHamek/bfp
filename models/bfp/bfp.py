@@ -139,7 +139,9 @@ class Bfp(ContinualModel):
             lambda_1, lambda_2, lambda_3 = 0.1, 0.1, 0.1  
             x1, x2 = inputs[:len(inputs)//2], inputs[len(inputs)//2:]
             z, z_prime = self.net(x1), self.net(x2)
-            self.feature_reducer = nn.Linear(3072, 512)  # Define this in __init__()
+            self.feature_reducer = nn.Linear(3072, 512).to(self.device)  # Move to correct device
+
+            #self.feature_reducer = nn.Linear(3072, 512)  # Define this in __init__()
             D_x1 = self.projector_manager.projectors[-1](self.feature_reducer(x1))
 
             #D_x1 = self.projector_manager.projectors[-1](x1.view(x1.size(0), 512))  # Adjust size if needed
