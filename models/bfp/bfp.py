@@ -139,6 +139,9 @@ class Bfp(ContinualModel):
             lambda_1, lambda_2, lambda_3 = 0.1, 0.1, 0.1  
             x1, x2 = inputs[:len(inputs)//2], inputs[len(inputs)//2:]
             z, z_prime = self.net(x1), self.net(x2)
+            D_x1 = self.projector_manager.projectors[-1](x1.view(x1.size(0), -1))
+            D_x2 = self.projector_manager.projectors[-1](x2.view(x2.size(0), -1))
+
             D_x1, D_x2 = self.projector_manager.projectors[-1](x1), self.projector_manager.projectors[-1](x2)
 
             D_x1 = torch.flatten(D_x1, start_dim=1) if D_x1.dim() > 2 else D_x1
