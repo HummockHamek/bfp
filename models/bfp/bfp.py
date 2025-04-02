@@ -78,7 +78,7 @@ class Bfp(ContinualModel):
         bfp_loss_dict = None
 
         if not self.buffer.is_empty():
-            '''Distill loss on the replayed images'''
+            
             if self.args.alpha_distill > 0:
                 if self.args.no_resample and "buf_inputs" in locals(): pass # No need to resample
                 else: buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
@@ -89,14 +89,14 @@ class Bfp(ContinualModel):
                         
                 logits_distill_loss = self.args.alpha_distill * F.mse_loss(buf_logits_new_net, buf_logits)
 
-            '''CE loss on the replayed images'''
+           
             if self.args.alpha_ce > 0:
                 if self.args.no_resample and "buf_inputs" in locals(): pass # No need to resample
                 else: buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
                 
                 replay_ce_loss = self.args.alpha_ce * self.loss(buf_logits_new_net, buf_labels)
 
-            '''Backward feature projection loss'''
+            
             if self.old_net is not None and self.projector_manager.bfp_flag:
                 if not self.args.new_only:
                     buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
