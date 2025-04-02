@@ -208,6 +208,13 @@ class Bfp(ContinualModel):
     COMPATIBILITY = ['class-il', 'domain-il', 'task-il', 'general-continual']
 
     def __init__(self, backbone, loss, args, transform):
+        # Add missing hyperparameters with default values
+        args.alpha_kd = getattr(args, 'alpha_kd', 1.0)
+        args.alpha_feature = getattr(args, 'alpha_feature', 0.5)
+        args.alpha_attention = getattr(args, 'alpha_attention', 0.1)
+        args.alpha_replay = getattr(args, 'alpha_replay', 1.0)
+        args.augment_replay = getattr(args, 'augment_replay', True)
+        
         set_best_args(args)
         super(Bfp, self).__init__(backbone, loss, args, transform)
         self.old_net = None
@@ -225,10 +232,9 @@ class Bfp(ContinualModel):
 
         assert not (self.args.new_only and self.args.old_only)
 
-        # Initialize the projectors used for BFP
         self.projector_manager = ProjectorManager(self.args, self.net.net_channels, self.device)
         
-        # Additional loss components
+        # Loss components
         self.kl_div = nn.KLDivLoss(reduction='batchmean')
         self.cos_sim = nn.CosineSimilarity(dim=1)
 
@@ -237,62 +243,44 @@ class Bfp(ContinualModel):
         self.projector_manager.begin_task(dataset, t, start_epoch)
 
     def compute_improved_loss(self, outputs, labels, buf_data=None, old_outputs=None, old_feats=None):
-        """
-        Enhanced loss function combining multiple components:
-        1. Standard Cross-Entropy
-        2. Knowledge Distillation (KL Divergence)
-        3. Feature Similarity (Cosine)
-        4. Attention Preservation
-        5. Gradient Projection
-        6. Buffer Replay Loss
-        """
-        # 1. Standard Cross-Entropy Loss
         ce_loss = self.loss(outputs, labels)
         
-        # Initialize other loss components
         kd_loss = 0.0
         feature_loss = 0.0
         attention_loss = 0.0
         replay_loss = 0.0
         
-        # 2. Knowledge Distillation Loss (if old network exists)
+        # Knowledge distillation
         if self.old_net is not None and old_outputs is not None:
-            # Temperature-scaled KL divergence for softer targets
             temperature = 2.0
             soft_targets = F.softmax(old_outputs / temperature, dim=1)
             soft_outputs = F.log_softmax(outputs / temperature, dim=1)
             kd_loss = self.kl_div(soft_outputs, soft_targets) * (temperature ** 2)
             
-        # 3. Feature Similarity Loss (if old features available)
-        if old_feats is not None and len(old_feats) == len(outputs.feats):
+        # Feature similarity
+        if old_feats is not None:
             for new_f, old_f in zip(outputs.feats, old_feats):
-                # Cosine similarity loss for intermediate features
                 feature_loss += 1 - self.cos_sim(new_f, old_f.detach()).mean()
         
-        # 4. Attention Preservation Loss (for CNN models)
+        # Attention preservation
         if hasattr(self.net, 'get_attention_maps') and old_feats is not None:
             new_attention = self.net.get_attention_maps(outputs.feats[-1])
             old_attention = self.old_net.get_attention_maps(old_feats[-1])
             attention_loss = F.mse_loss(new_attention, old_attention.detach())
         
-        # 5. Buffer Replay Loss (if buffer data available)
+        # Replay loss
         if buf_data is not None:
             buf_inputs, buf_labels = buf_data[0], buf_data[1]
             buf_outputs = self.net(buf_inputs)
-            
-            # Combined replay loss with label smoothing
             replay_ce = self.loss(buf_outputs, buf_labels)
             
-            # Add consistency regularization
             if self.args.augment_replay:
                 aug_buf_inputs = self.transform(buf_inputs)
                 aug_buf_outputs = self.net(aug_buf_inputs)
-                consistency_loss = F.mse_loss(buf_outputs, aug_buf_outputs)
-                replay_loss = replay_ce + consistency_loss * 0.1
+                replay_loss = replay_ce + F.mse_loss(buf_outputs, aug_buf_outputs) * 0.1
             else:
                 replay_loss = replay_ce
         
-        # Combine all losses with configurable weights
         total_loss = (
             ce_loss +
             self.args.alpha_kd * kd_loss +
@@ -310,21 +298,17 @@ class Bfp(ContinualModel):
         }
 
     def observe(self, inputs, labels, not_aug_inputs):
-        # Forward pass through network
         outputs, feats = self.net.forward_all_layers(inputs)
         
-        # Get old network outputs if available
         old_outputs, old_feats = None, None
         if self.old_net is not None:
             with torch.no_grad():
                 old_outputs, old_feats = self.old_net.forward_all_layers(inputs)
         
-        # Sample from buffer if not empty
         buf_data = None
         if not self.buffer.is_empty():
             buf_data = self.buffer.get_data(self.args.minibatch_size, transform=self.transform)
         
-        # Compute improved loss
         loss, loss_dict = self.compute_improved_loss(
             outputs=outputs,
             labels=labels,
@@ -333,7 +317,6 @@ class Bfp(ContinualModel):
             old_feats=old_feats
         )
         
-        # Add BFP loss if applicable
         if self.old_net is not None and self.projector_manager.bfp_flag:
             if not self.args.new_only:
                 buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = \
@@ -371,14 +354,12 @@ class Bfp(ContinualModel):
             loss += bfp_loss_all
             loss_dict.update(bfp_loss_dict)
         
-        # Optimization step
         self.opt.zero_grad()
         self.projector_manager.before_backward()
         loss.backward()
         self.opt.step()
         self.projector_manager.step()
         
-        # Add data to buffer
         task_labels = torch.ones_like(labels) * self.task_id
         if self.args.use_buf_feats:
             final_feats = feats[-1]
@@ -397,7 +378,6 @@ class Bfp(ContinualModel):
                 task_labels=task_labels
             )
         
-        # Logging
         log_dict = {"train/loss": loss}
         log_dict.update({"train/" + k: v for k, v in loss_dict.items()})
         wandb.log(log_dict)
@@ -405,7 +385,6 @@ class Bfp(ContinualModel):
         return loss.item()
 
     def sample_buffer_and_forward(self, transform=None):
-        """Utility function to sample from buffer and forward pass"""
         if transform is None:
             transform = self.transform
             
