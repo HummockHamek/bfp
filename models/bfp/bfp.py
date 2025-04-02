@@ -25,32 +25,6 @@ from .args import set_best_args
 from .utils import *
 from .projector_manager import ProjectorManager
 
-class CustomLoss(nn.Module):
-    def __init__(self, lambda1=0.1, lambda2=0.1, lambda3=0.05, feature_dim=128):
-        super(CustomLoss, self).__init__()
-        self.lambda1 = lambda1
-        self.lambda2 = lambda2
-        self.lambda3 = lambda3
-        self.similarity_metric = nn.CosineSimilarity(dim=1)
-        self.feature_dim = feature_dim
-
-    def forward(self, inputs, buf_inputs, feats, buf_feats, norm_inputs, norm_buf_inputs):
-        # Compute similarity loss
-        similarity_loss = torch.mean(1 - self.similarity_metric(feats, buf_feats))
-
-        # Compute norm difference loss
-        norm_loss = torch.abs(norm_inputs - norm_buf_inputs).mean()
-
-        # Compute variance regularization loss
-        variance_loss = torch.var(feats) + torch.var(buf_feats)
-
-        # Total loss
-        total_loss = (
-            self.lambda1 * similarity_loss +
-            self.lambda2 * norm_loss +
-            self.lambda3 * variance_loss
-        )
-        return total_loss
 class Bfp(ContinualModel):
     NAME = 'bfp'
     COMPATIBILITY = ['class-il', 'domain-il', 'task-il', 'general-continual']
@@ -89,7 +63,6 @@ class Bfp(ContinualModel):
         # Regular CE loss on the online data
         outputs, feats = self.net.forward_all_layers(inputs)
         ce_loss = self.loss(outputs, labels)
-    
 
         def sample_buffer_and_forward(transform = self.transform):
             buf_data = self.buffer.get_data(self.args.minibatch_size, transform=transform)
@@ -103,8 +76,7 @@ class Bfp(ContinualModel):
         replay_ce_loss = 0.0
         bfp_loss_all = 0.0
         bfp_loss_dict = None
-        new_loss = 0.0
-        buf_inputs, buf_feats_new_net = None, None
+
         if not self.buffer.is_empty():
             '''Distill loss on the replayed images'''
             if self.args.alpha_distill > 0:
@@ -129,7 +101,7 @@ class Bfp(ContinualModel):
                 if not self.args.new_only:
                     buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
 
-                '''if self.args.use_buf_feats:
+                if self.args.use_buf_feats:
                     # new and old features should be both a list 
                     # And in this case, we only care about the last layer
                     feats_comb = buf_feats_new_net[-1:]
@@ -162,10 +134,6 @@ class Bfp(ContinualModel):
                 
                 bfp_loss_all, bfp_loss_dict = self.projector_manager.compute_loss(
                     feats_comb, feats_old, mask_new, mask_old)
-        custom_loss_fn = CustomLoss(lambda1=0.1, lambda2=0.1, lambda3=0.05, feature_dim=feats[-1].shape[1])
-        custom_loss = custom_loss_fn(inputs, buf_inputs, feats[-1], buf_feats_new_net[-1], torch.norm(inputs), torch.norm(buf_inputs))
-        
-        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all + custom_loss'''
                 
         loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all
 
@@ -210,4 +178,3 @@ class Bfp(ContinualModel):
         self.old_net.eval()
 
         self.projector_manager.end_task(dataset, self.old_net)
-
