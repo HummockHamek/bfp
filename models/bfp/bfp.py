@@ -242,7 +242,7 @@ class Bfp(ContinualModel):
         super().begin_task(dataset, t, start_epoch)
         self.projector_manager.begin_task(dataset, t, start_epoch)
 
-    def compute_improved_loss(self, outputs, labels, buf_data=None, old_outputs=None, old_feats=None):
+    def compute_improved_loss(self, outputs, feats, labels, buf_data=None, old_outputs=None, old_feats=None):
         ce_loss = self.loss(outputs, labels)
         
         kd_loss = 0.0
@@ -312,6 +312,7 @@ class Bfp(ContinualModel):
         
         loss, loss_dict = self.compute_improved_loss(
             outputs=outputs,
+            feats=feats,  # Add this line
             labels=labels,
             buf_data=buf_data,
             old_outputs=old_outputs,
