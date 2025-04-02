@@ -276,7 +276,7 @@ class Bfp(ContinualModel):
             
             if self.args.augment_replay:
                 #aug_buf_inputs = self.transform(buf_inputs)
-                aug_buf_inputs = torch.stack([self.transform(img) for img in buf_inputs])
+                aug_buf_inputs = torch.stack([self.transform(img).to(self.device) for img in buf_inputs])
                 aug_buf_outputs = self.net(aug_buf_inputs)
                 replay_loss = replay_ce + F.mse_loss(buf_outputs, aug_buf_outputs) * 0.1
             else:
