@@ -259,12 +259,12 @@ class Bfp(ContinualModel):
             
         # Feature similarity
         if old_feats is not None:
-            for new_f, old_f in zip(outputs.feats, old_feats):
+            for new_f, old_f in zip(feats, old_feats):
                 feature_loss += 1 - self.cos_sim(new_f, old_f.detach()).mean()
         
         # Attention preservation
         if hasattr(self.net, 'get_attention_maps') and old_feats is not None:
-            new_attention = self.net.get_attention_maps(outputs.feats[-1])
+            new_attention = self.net.get_attention_maps(feats[-1])
             old_attention = self.old_net.get_attention_maps(old_feats[-1])
             attention_loss = F.mse_loss(new_attention, old_attention.detach())
         
