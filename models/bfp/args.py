@@ -73,6 +73,15 @@ def get_parser() -> ArgumentParser:
     # beta in the original paper
 	parser.add_argument('--alpha_ce', type=float, default=None,
 				help='Weight of the replayed CE loss.')
+	
+	#utkarsh
+	parser.add_argument('--alpha_feat_distill', type=float, default=0.1,
+				help='Weight of the feature-level distillation loss between old and new features')
+	parser.add_argument('--alpha_ewc', type=float, default=0.1,
+				help='Weight of the Elastic Weight Consolidation (EWC) loss')
+	parser.add_argument('--distill_temp', type=float, default=2.0,
+				help='Temperature used in distillation for softening logits')
+	#end
 
 	parser.add_argument('--resnet_skip_relu', action="store_true",
 				help="If set, the last ReLU of each block of ResNet is skipped.")

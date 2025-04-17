@@ -1,4 +1,4 @@
-'''# Copyright 2020-present, Pietro Buzzega, Matteo Boschini, Angelo Porrello, Davide Abati, Simone Calderara.
+# Copyright 2020-present, Pietro Buzzega, Matteo Boschini, Angelo Porrello, Davide Abati, Simone Calderara.
 # All rights reserved.
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
@@ -58,6 +58,22 @@ class Bfp(ContinualModel):
     def begin_task(self, dataset, t=0, start_epoch=0):
         super().begin_task(dataset, t, start_epoch)
         self.projector_manager.begin_task(dataset, t, start_epoch)
+    
+    #Utkarsh 
+
+    def end_task(self, dataset):
+        self.old_net = copy.deepcopy(self.net)
+        self.old_net.eval()
+        self.projector_manager.end_task(dataset, self.old_net)
+
+        # EWC storage
+        self.ewc_params = {}
+        for name, param in self.net.named_parameters():
+            self.ewc_params[name] = {
+                'mean': param.data.clone(),
+                'fisher': param.grad.data.clone().pow(2)  # Approx Fisher info
+            }
+
 
     def observe(self, inputs, labels, not_aug_inputs):
         # Regular CE loss on the online data
@@ -87,7 +103,10 @@ class Bfp(ContinualModel):
                     with torch.no_grad():
                         buf_logits = self.old_net(buf_inputs)
                         
-                logits_distill_loss = self.args.alpha_distill * F.mse_loss(buf_logits_new_net, buf_logits)
+                #logits_distill_loss = self.args.alpha_distill * F.mse_loss(buf_logits_new_net, buf_logits)
+                cosine_sim = F.cosine_similarity(buf_logits_new_net, buf_logits, dim=1).mean()
+                logits_distill_loss = self.args.alpha_distill * (1 - cosine_sim)
+
 
            
             if self.args.alpha_ce > 0:
@@ -96,7 +115,28 @@ class Bfp(ContinualModel):
                 
                 replay_ce_loss = self.args.alpha_ce * self.loss(buf_logits_new_net, buf_labels)
 
-            
+            #utkarsh
+            feat_distill_loss = 0.0
+            if self.old_net is not None:
+                with torch.no_grad():
+                    _, old_feats = self.old_net.forward_all_layers(inputs)
+
+                for new_f, old_f in zip(feats[:-1], old_feats[:-1]):  # skip last, BFP handles it
+                    feat_distill_loss += F.mse_loss(new_f, old_f)
+
+                feat_distill_loss *= self.args.alpha_feat_distill  # Add this arg
+
+            ewc_loss = 0
+            if hasattr(self, 'ewc_params'):
+                for name, param in self.net.named_parameters():
+                    if name in self.ewc_params:
+                        mean = self.ewc_params[name]['mean']
+                        fisher = self.ewc_params[name]['fisher']
+                        ewc_loss += (fisher * (param - mean).pow(2)).sum()
+                ewc_loss *= self.args.alpha_ewc
+
+
+
             if self.old_net is not None and self.projector_manager.bfp_flag:
                 if not self.args.new_only:
                     buf_inputs, buf_labels, buf_logits, buf_task_labels, buf_feats, buf_logits_new_net, buf_feats_new_net = sample_buffer_and_forward()
@@ -135,7 +175,7 @@ class Bfp(ContinualModel):
                 bfp_loss_all, bfp_loss_dict = self.projector_manager.compute_loss(
                     feats_comb, feats_old, mask_new, mask_old)
                 
-        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all
+        loss = ce_loss + logits_distill_loss + replay_ce_loss + bfp_loss_all + feat_distill_loss  + ewc_loss
 
         self.opt.zero_grad()
         self.projector_manager.before_backward()
@@ -177,10 +217,10 @@ class Bfp(ContinualModel):
         self.old_net = copy.deepcopy(self.net)
         self.old_net.eval()
 
-        self.projector_manager.end_task(dataset, self.old_net)'''
+        self.projector_manager.end_task(dataset, self.old_net)
 
 
-# Copyright 2020-present, Pietro Buzzega, Matteo Boschini, Angelo Porrello, Davide Abati, Simone Calderara.
+'''# Copyright 2020-present, Pietro Buzzega, Matteo Boschini, Angelo Porrello, Davide Abati, Simone Calderara.
 # All rights reserved.
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
@@ -405,4 +445,4 @@ class Bfp(ContinualModel):
     def end_task(self, dataset):
         self.old_net = copy.deepcopy(self.net)
         self.old_net.eval()
-        self.projector_manager.end_task(dataset, self.old_net)
+        self.projector_manager.end_task(dataset, self.old_net)'''
