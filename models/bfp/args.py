@@ -91,6 +91,9 @@ def get_parser() -> ArgumentParser:
 	                    help='Weight for buffer replay loss')
 	parser.add_argument('--augment_replay', type=bool, default=True,
 	                    help='Whether to apply augmentation to replay buffer samples')
+	parser.add_argument('--augment_replay', action='store_true',
+                    help='If set, apply augmentation to replay buffer samples')
+
 	#end
 
 	parser.add_argument('--resnet_skip_relu', action="store_true",
