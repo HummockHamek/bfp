@@ -89,8 +89,6 @@ def get_parser() -> ArgumentParser:
 	                    help='Weight for attention loss')
 	parser.add_argument('--alpha_replay', type=float, default=1.0,
 	                    help='Weight for buffer replay loss')
-	parser.add_argument('--augment_replay', type=bool, default=True,
-	                    help='Whether to apply augmentation to replay buffer samples')
 	parser.add_argument('--augment_replay', action='store_true',
                     help='If set, apply augmentation to replay buffer samples')
 
