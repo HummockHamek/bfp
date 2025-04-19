@@ -81,6 +81,16 @@ def get_parser() -> ArgumentParser:
 				help='Weight of the Elastic Weight Consolidation (EWC) loss')
 	parser.add_argument('--distill_temp', type=float, default=2.0,
 				help='Temperature used in distillation for softening logits')
+	parser.add_argument('--alpha_kd', type=float, default=1.0,
+	                    help='Weight for knowledge distillation loss')
+	parser.add_argument('--alpha_feature', type=float, default=0.5,
+	                    help='Weight for feature distillation loss')
+	parser.add_argument('--alpha_attention', type=float, default=0.1,
+	                    help='Weight for attention loss')
+	parser.add_argument('--alpha_replay', type=float, default=1.0,
+	                    help='Weight for buffer replay loss')
+	parser.add_argument('--augment_replay', type=bool, default=True,
+	                    help='Whether to apply augmentation to replay buffer samples')
 	#end
 
 	parser.add_argument('--resnet_skip_relu', action="store_true",
