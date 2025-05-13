@@ -39,4 +39,3 @@ def get_dataset(args: Namespace) -> ContinualDataset:
     args.N_CLASSES_PER_TASK = dataset.N_CLASSES_PER_TASK
 
     return dataset
-
